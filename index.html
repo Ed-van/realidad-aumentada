@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Visualizador AR – Portacelular</title>
+
+  <!-- A-Frame (motor 3D) + AR.js (seguimiento de marcadores) -->
+  <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
+  <script src="https://raw.githack.com/AR-js-org/AR.js/3.4.5/aframe/build/aframe-ar.js"></script>
+
+  <style>
+    body { margin: 0; overflow: hidden; font-family: system-ui, sans-serif; }
+    #ui {
+      position: fixed; left: 0; right: 0; bottom: 20px; z-index: 10;
+      display: flex; justify-content: center; gap: 10px;
+    }
+    #ui button {
+      border: none; border-radius: 999px; padding: 12px 18px;
+      font-size: 16px; font-weight: 600; color: #fff;
+      background: rgba(20, 20, 30, 0.75); backdrop-filter: blur(6px);
+    }
+    #estado {
+      position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+      z-index: 10; padding: 8px 14px; border-radius: 999px;
+      background: rgba(20, 20, 30, 0.75); color: #fff; font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div id="estado">Apunta la cámara al marcador HIRO</div>
+
+  <div id="ui">
+    <button id="btnMenos">−</button>
+    <button id="btnRotar">Girar</button>
+    <button id="btnMas">+</button>
+  </div>
+
+  <a-scene
+    embedded
+    vr-mode-ui="enabled: false"
+    renderer="logarithmicDepthBuffer: true; antialias: true"
+    arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;">
+
+    <!-- Luces -->
+    <a-entity light="type: ambient; intensity: 0.7"></a-entity>
+    <a-entity light="type: directional; intensity: 0.8" position="1 2 1"></a-entity>
+
+    <!-- MARCADOR: "hiro" es el marcador predeterminado de AR.js -->
+    <a-marker preset="hiro" id="marcador" smooth="true" smoothCount="5">
+
+      <!-- Contenedor del modelo (escala y rotación se controlan con los botones) -->
+      <a-entity id="modelo" scale="1 1 1">
+
+        <!--
+          ===== OPCIÓN A: usar tu propio modelo 3D (.glb / .gltf) =====
+          Exporta tu portacelular desde Blender, Fusion 360, SketchUp, etc. como .glb,
+          ponlo junto a este archivo y descomenta la línea de abajo.
+          Luego borra o comenta el bloque "OPCIÓN B".
+
+          <a-entity gltf-model="url(portacelular.glb)" scale="0.5 0.5 0.5" position="0 0 0"></a-entity>
+        -->
+
+        <!-- ===== OPCIÓN B: portacelular de ejemplo armado con primitivas ===== -->
+        <!-- Base -->
+        <a-box position="0 0.03 0" width="0.9" height="0.06" depth="0.8"
+               color="#2E86DE" material="roughness: 0.5"></a-box>
+
+        <!-- Parte inclinada (soporte + celular), inclinada 20° hacia atrás -->
+        <a-entity position="0 0.06 0.15" rotation="-20 0 0">
+          <!-- Repisa donde se apoya el celular -->
+          <a-box position="0 0.02 0" width="0.75" height="0.04" depth="0.22" color="#2E86DE"></a-box>
+          <!-- Pestaña delantera -->
+          <a-box position="0 0.07 0.1" width="0.75" height="0.1" depth="0.04" color="#2E86DE"></a-box>
+          <!-- Respaldo -->
+          <a-box position="0 0.48 -0.09" width="0.6" height="0.9" depth="0.05" color="#2E86DE"></a-box>
+
+          <!-- Celular -->
+          <a-box position="0 0.5 -0.04" width="0.46" height="0.92" depth="0.045"
+                 color="#1B1B1F" material="roughness: 0.3; metalness: 0.4"></a-box>
+          <!-- Pantalla -->
+          <a-plane position="0 0.5 -0.016" width="0.42" height="0.86"
+                   color="#4FC3F7" material="emissive: #1E88E5; emissiveIntensity: 0.4"></a-plane>
+          <!-- Texto en la pantalla -->
+          <a-text value="Hola AR" align="center" color="#FFFFFF" width="1.6"
+                  position="0 0.55 -0.014"></a-text>
+        </a-entity>
+
+        <!-- Refuerzo trasero -->
+        <a-box position="0 0.28 -0.3" rotation="35 0 0" width="0.45" height="0.6" depth="0.05"
+               color="#1F6FB2"></a-box>
+      </a-entity>
+    </a-marker>
+
+    <a-entity camera></a-entity>
+  </a-scene>
+
+  <script>
+    const modelo  = document.getElementById('modelo');
+    const marcador = document.getElementById('marcador');
+    const estado  = document.getElementById('estado');
+    let escala = 1;
+    let girando = false;
+
+    // Mensaje de estado al detectar / perder el marcador
+    marcador.addEventListener('markerFound', () => {
+      estado.textContent = '✅ Marcador detectado';
+    });
+    marcador.addEventListener('markerLost', () => {
+      estado.textContent = 'Apunta la cámara al marcador HIRO';
+    });
+
+    // Zoom
+    function aplicarEscala() {
+      modelo.setAttribute('scale', `${escala} ${escala} ${escala}`);
+    }
+    document.getElementById('btnMas').onclick = () => { escala = Math.min(escala + 0.2, 4); aplicarEscala(); };
+    document.getElementById('btnMenos').onclick = () => { escala = Math.max(escala - 0.2, 0.2); aplicarEscala(); };
+
+    // Rotación continua (activar / desactivar)
+    document.getElementById('btnRotar').onclick = () => {
+      girando = !girando;
+      if (girando) {
+        modelo.setAttribute('animation',
+          'property: rotation; to: 0 360 0; loop: true; dur: 6000; easing: linear');
+      } else {
+        modelo.removeAttribute('animation');
+      }
+    };
+  </script>
+</body>
+</html>
